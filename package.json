@@ -1,0 +1,24 @@
+{
+  "name": "gulp-inject-angular-dependency",
+  "version": "1.0.0",
+  "description": "auto inject dependencies to angular controller/directive/etc. change the factory function to array with dependencies.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "gulp",
+    "angular",
+    "inject",
+    "dependency",
+    "dependencies"
+  ],
+  "author": "pei.chao@qq.com",
+  "license": "ISC",
+  "dependencies": {
+    "acorn": "^2.4.0",
+    "escodegen": "^1.7.0",
+    "gulp-util": "^3.0.7",
+    "readable-stream": "^2.0.3"
+  }
+}
