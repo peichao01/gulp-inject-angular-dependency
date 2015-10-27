@@ -40,7 +40,7 @@ module.exports = function (filterFn) {
     var fs   = require('fs')
     var path = require('path')
 
-    var jsFilePath = path.join(__dirname, '../../www/js/modules/user/directives/bpCheckbox.js')
+    var jsFilePath = path.join(__dirname, '../../www/js/modules/user/directives/bpCalendar.js')
     var content    = fs.readFileSync(jsFilePath, 'utf8')
     doInject(content, jsFilePath)
 }
@@ -130,9 +130,10 @@ function traversal(node, nodeKey, parentNode, filePath) {
                         }
                     })
 
+                    var firstArg = fnIndex === 0 ? '' : '"' + argumentsNode[0].value + '", '
                     log(filePath,
                         node._parentNode.object.name + '.' + content +
-                        '("' + argumentsNode[fnIndex].value + '", function(' + elements.map(function (elem) {
+                        '('+firstArg+'function(' + elements.map(function (elem) {
                             return elem.value
                         }).join(',') + '){...})'
                     )
