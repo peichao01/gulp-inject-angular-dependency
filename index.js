@@ -10,7 +10,7 @@ var PluginError = gutil.PluginError
 /**
  * @param [filterFn] if not send, all files will be injected.
  */
-module.exports = function (filterFn) {
+module.exports = function (filterFn, outputLog) {
     return new Transform({
         objectMode: true,
         transform:  function (file, enc, callback) {
@@ -25,7 +25,7 @@ module.exports = function (filterFn) {
 
             if (file.isBuffer()) {
                 if (!filterFn || filterFn(file.path)) {
-                    file.contents = new Buffer(doInject(String(file.contents), file.path))
+                    file.contents = new Buffer(doInject(String(file.contents), file.path, outputLog))
                 }
 
                 return callback(null, file)
@@ -40,25 +40,25 @@ module.exports = function (filterFn) {
  var fs   = require('fs')
  var path = require('path')
 
- var jsFilePath = path.join(__dirname, '../../www/js/modules/user/directives/bpCalendar.js')
+ var jsFilePath = path.join(__dirname, '../../www/js/modules/common/directives/bpCountdownButton.js')
  var content    = fs.readFileSync(jsFilePath, 'utf8')
  doInject(content, jsFilePath)
  }
  module.exports()*/
 
-function doInject(contents, filePath) {
+function doInject(contents, filePath, outputLog) {
     var astJson = acorn.parse(contents, {
         ranges: false
     })
 
-    traversal(astJson, null, null, filePath)
+    traversal(astJson, null, null, filePath, outputLog)
 
     var codeStr = escodegen.generate(astJson)
 
     return codeStr
 }
 
-function traversal(node, nodeKey, parentNode, filePath) {
+function traversal(node, nodeKey, parentNode, filePath, outputLog) {
     if (!node) return
 
     node._nodeKey    = nodeKey
@@ -81,6 +81,8 @@ function traversal(node, nodeKey, parentNode, filePath) {
          * 1.
          *  module.controller("name", function(){})
          *  module.directive("name", function(){})
+         *  module.service("name", function(){})
+         *  module.factory("name", function(){})
          *  module.config(function(){})
          *  module.run(function(){})
          *
@@ -93,11 +95,22 @@ function traversal(node, nodeKey, parentNode, filePath) {
          *  }
          * })
          *
+         * module.provider("name", function(){
+         *  return {
+         *      $get: function($http){}
+         *  }
+         * })
+         *
          */
-        var args2Keywords = ['controller', 'directive', 'factory', 'service']
-        var args1Keywords = ['config', 'run']
+        // provider 不可以注入
+        var args2Keywords       = ['controller', 'directive', 'service', 'factory']
+        var args1Keywords       = ['config', 'run']
+        var memberOfObjToReturn = ['controller', '$get']
         var isArgs1
-        if ((isArgs1 = args1Keywords.indexOf(content) >= 0) || args2Keywords.indexOf(content) >= 0) {
+        if ((isArgs1 = args1Keywords.indexOf(content) >= 0) ||
+            args2Keywords.indexOf(content) >= 0 ||
+            memberOfObjToReturn.indexOf(content) >= 0) {
+
             // xx.directive('name', function)
             var propertyNode
             if (nodeKey == 'property' &&
@@ -131,13 +144,15 @@ function traversal(node, nodeKey, parentNode, filePath) {
                         }
                     })
 
-                    var firstArg = fnIndex === 0 ? '' : '"' + argumentsNode[0].value + '", '
-                    log(filePath,
-                        node._parentNode.object.name + '.' + content +
-                        '(' + firstArg + 'function(' + elements.map(function (elem) {
-                            return elem.value
-                        }).join(',') + '){...})'
-                    )
+                    if (outputLog) {
+                        var firstArg = fnIndex === 0 ? '' : '"' + argumentsNode[0].value + '", '
+                        log(filePath,
+                            node._parentNode.object.name + '.' + content +
+                            '(' + firstArg + 'function(' + elements.map(function (elem) {
+                                return elem.value
+                            }).join(',') + '){...})'
+                        )
+                    }
 
                     elements.push(functionNode)
 
@@ -152,7 +167,7 @@ function traversal(node, nodeKey, parentNode, filePath) {
                 nodeKey == 'key' &&
                 (propertyNode = node._parentNode)._nodeKey == 'properties' &&
                 propertyNode.value.type == 'FunctionExpression') {
-                var isDirectiveController
+                var isDirectiveController, isProvider$get
                 /**
                  * only support stationary code structure:
                  *
@@ -179,11 +194,14 @@ function traversal(node, nodeKey, parentNode, filePath) {
                         propertyNode._parentNode._parentNode._parentNode._parentNode._parentNode._parentNode.callee.property.name === 'directive') {
                         isDirectiveController = true
                     }
+                    else if (propertyNode._parentNode._parentNode._parentNode._parentNode._parentNode._parentNode.expression.callee.property.name === 'provider') {
+                        isProvider$get = true
+                    }
                 }
                 catch (e) {
                 }
 
-                if (!isDirectiveController) return
+                if (!isDirectiveController && !isProvider$get) return
 
                 var elements = propertyNode.value.params.map(function (param) {
                     return {
@@ -193,12 +211,13 @@ function traversal(node, nodeKey, parentNode, filePath) {
                     }
                 })
 
-                log(filePath,
-                    content + ': ' +
-                    'function(' + elements.map(function (elem) {
-                        return elem.value
-                    }).join(',') + '){...})'
-                )
+                if (outputLog)
+                    log(filePath,
+                        content + ': ' +
+                        'function(' + elements.map(function (elem) {
+                            return elem.value
+                        }).join(',') + '){...})'
+                    )
 
                 elements.push(propertyNode.value)
 
@@ -213,7 +232,7 @@ function traversal(node, nodeKey, parentNode, filePath) {
         if (!Array.isArray(content)) return
 
         content.forEach(function (n) {
-            traversal(n, info.contentKey, node, filePath)
+            traversal(n, info.contentKey, node, filePath, outputLog)
         })
     })
 }

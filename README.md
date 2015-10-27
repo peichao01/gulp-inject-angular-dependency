@@ -26,10 +26,13 @@ Note:
 // 1.
  module.controller("name", function(){})
  module.directive("name", function(){})
+ module.service("name", function(){})
+ module.factory("name", function(){})
  module.config(function(){})
  module.run(function(){})
 
-// 2. controller in directive definition:
+// 2. 
+// controller in directive definition:
 
 module.directive("name", function(){
   return {
@@ -37,6 +40,14 @@ module.directive("name", function(){
     controller: function(){}
   }
 })
+
+// $get in provider definition:
+
+module.provider("name", function(){
+  return {
+    $get: function($http){}
+  }
+}
 
 
 // 2.1 
