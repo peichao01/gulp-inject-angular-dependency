@@ -37,14 +37,14 @@ module.exports = function (filterFn) {
 }
 
 /*module.exports = function () {
-    var fs   = require('fs')
-    var path = require('path')
+ var fs   = require('fs')
+ var path = require('path')
 
-    var jsFilePath = path.join(__dirname, '../../www/js/modules/user/directives/bpCalendar.js')
-    var content    = fs.readFileSync(jsFilePath, 'utf8')
-    doInject(content, jsFilePath)
-}
-module.exports()*/
+ var jsFilePath = path.join(__dirname, '../../www/js/modules/user/directives/bpCalendar.js')
+ var content    = fs.readFileSync(jsFilePath, 'utf8')
+ doInject(content, jsFilePath)
+ }
+ module.exports()*/
 
 function doInject(contents, filePath) {
     var astJson = acorn.parse(contents, {
@@ -94,7 +94,10 @@ function traversal(node, nodeKey, parentNode, filePath) {
          * })
          *
          */
-        if (['controller', 'directive', 'config', 'run'].indexOf(content) >= 0) {
+        var args2Keywords = ['controller', 'directive', 'factory', 'service']
+        var args1Keywords = ['config', 'run']
+        var isArgs1
+        if ((isArgs1 = args1Keywords.indexOf(content) >= 0) || args2Keywords.indexOf(content) >= 0) {
             // xx.directive('name', function)
             var propertyNode
             if (nodeKey == 'property' &&
@@ -103,17 +106,15 @@ function traversal(node, nodeKey, parentNode, filePath) {
                 var argumentsNode = node._parentNode._parentNode['arguments']
                 var functionNode, isSupport, fnIndex
 
-                if (content === 'config' ||
-                    content === 'run') {
-                    fnIndex = 0
+                if (isArgs1) {
+                    fnIndex   = 0
                     isSupport = argumentsNode.length == 1 &&
                         (functionNode = argumentsNode[fnIndex]).type == 'FunctionExpression' &&
                             // 如果函数没有参数，也不必管
                         functionNode.params
                 }
-                else if (content === 'controller' ||
-                    content === 'directive') {
-                    fnIndex = 1
+                else {
+                    fnIndex   = 1
                     isSupport = argumentsNode.length == 2 &&
                         argumentsNode[0].type == 'Literal' &&
                         (functionNode = argumentsNode[fnIndex]).type == 'FunctionExpression' &&
@@ -133,7 +134,7 @@ function traversal(node, nodeKey, parentNode, filePath) {
                     var firstArg = fnIndex === 0 ? '' : '"' + argumentsNode[0].value + '", '
                     log(filePath,
                         node._parentNode.object.name + '.' + content +
-                        '('+firstArg+'function(' + elements.map(function (elem) {
+                        '(' + firstArg + 'function(' + elements.map(function (elem) {
                             return elem.value
                         }).join(',') + '){...})'
                     )
